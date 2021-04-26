@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"log"
 	"net"
 )
@@ -34,13 +33,33 @@ func handleConnection(clientConnection net.Conn) {
 	}
 	defer resolverConnection.Close()
 	log.Println("Passing request to cloudflare")
-	go io.Copy(resolverConnection, clientConnection)
-	log.Println("Writing response to our client")
-	_, err = io.Copy(clientConnection, resolverConnection)
+
+	// UnresolvedDNS holds the actual unresolved dns message.
+	var unresolvedDNS [2222]byte
+	responseSize, err := clientConnection.Read(unresolvedDNS[:])
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println("Response sent successfully")
+
+	// Write to the resolver
+	responseSize, err = resolverConnection.Write(unresolvedDNS[:responseSize])
+	if err != nil {
+		log.Println(err)
+	}
+
+	// Get response from resolver
+	var resolvedDNS [2222]byte
+	responseSize, err = resolverConnection.Read(resolvedDNS[:])
+	if err != nil {
+		log.Println(err)
+	}
+
+	// Send response to client
+	responseSize, err = clientConnection.Write(resolvedDNS[:])
+	if err != nil {
+		log.Println(err)
+	}
+
 }
 
 func main() {
