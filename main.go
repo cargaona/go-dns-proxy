@@ -7,35 +7,40 @@ import (
 )
 
 func server() {
-	// start server
-	log.Println("Starting TCP Server.")
-	server, err := net.Listen("tcp", "localhost:8853")
+	// start listener
+	log.Println("Starting TCP Server")
+	listener, err := net.Listen("tcp", "localhost:8853")
 	if err != nil {
-		log.Println("error creating server")
+		log.Println("error creating listener")
 	}
 
 	for {
 		log.Println("Accepting connection")
-		conn, err := server.Accept()
+		clientConnection, err := listener.Accept()
 		if err != nil {
 			log.Println(err)
 		}
 		log.Println("Spawning new goroutine to handle connection")
-		go handleConnection(conn)
+		go handleConnection(clientConnection)
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(clientConnection net.Conn) {
 	//create connection to external dns server
 	log.Println("Creating connection to DNS Resolver")
-	client, err := net.Dial("tcp", "1.1.1.1:53")
+	resolverConnection, err := net.Dial("tcp", "1.1.1.1:53")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Close()
-	log.Println("Copying messages?")
-	// Sending message to cloudflare
-	io.Copy(client, conn)
+	defer resolverConnection.Close()
+	log.Println("Passing request to cloudflare")
+	go io.Copy(resolverConnection, clientConnection)
+	log.Println("Writing response to our client")
+	_, err = io.Copy(clientConnection, resolverConnection)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Println("Response sent successfully")
 }
 
 func main() {

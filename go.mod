@@ -1,3 +1,3 @@
-module github.com/cargaona/dns-proxy
+module github.com/cargaona/go-dns-proxy
 
 go 1.16
